@@ -7,6 +7,7 @@ The complete unfiltered log is NEVER written to git automatically.
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import datetime as dt
 import hashlib
 import json
@@ -21,6 +22,8 @@ import time
 import uuid
 
 MAX_DISPLAY_CHARS = 32000
+MAX_TEST_TAIL_LINES = 24
+MAX_TEST_TAIL_CHARS = 4000
 
 # Only a warning/suppression safety net, NOT a comprehensive secret scanner.
 SECRET_MARKERS = [
@@ -173,6 +176,18 @@ def display_summary(s: str) -> None:
         print(end)
 
 
+def bounded_test_tail(raw: Path) -> str:
+    """Show a small raw test footer so RTK log cannot hide pass/fail totals.
+
+    This is a convenience preview, never a replacement for reviewing raw.log.
+    """
+    with raw.open("r", encoding="utf-8", errors="replace") as source:
+        tail = "".join(deque(source, maxlen=MAX_TEST_TAIL_LINES))
+    if len(tail) > MAX_TEST_TAIL_CHARS:
+        tail = "[Raw footer shortened for display only]\n" + tail[-MAX_TEST_TAIL_CHARS:]
+    return tail
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kind", choices=("test", "list", "raw"), default="test")
@@ -238,6 +253,14 @@ def main() -> int:
         display_summary(compact)
     else:
         print(f"[rtk-safe] {status}: summary unavailable. Inspect the raw log; do NOT assume the command passed based on missing output.")
+    # RTK's generic `log` filter groups severity lines and can omit Vitest or
+    # Playwright result totals. Show a bounded raw footer for test commands.
+    # Never display it when the limited secret-pattern guard warns.
+    if args.kind == "test" and not warning_secret:
+        footer = bounded_test_tail(raw)
+        if footer:
+            print("[rtk-safe] Raw test footer (bounded preview, not formal evidence):")
+            print(footer, end="" if footer.endswith("\n") else "\n")
     if code != 0:
         print("[rtk-safe] FAILURE: inspect raw.log when condensed output is insufficient; do NOT rerun solely to recover output.")
     return code
