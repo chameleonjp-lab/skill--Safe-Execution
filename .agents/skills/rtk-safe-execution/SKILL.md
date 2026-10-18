@@ -39,6 +39,7 @@ Minimize command output supplied to an AI assistant **without sacrificing origin
 ## Failure handling
 
 - Missing RTK: the command still runs once, raw output is retained, and a clear warning is printed; no automatic fallback to a misleading summary.
+- RTK's generic `log` filter may omit test summaries such as `Tests 3 failed`. For `--kind test`, this runner also displays the last 24 raw-output lines (up to 4,000 characters) after RTK filtering. This is a bounded preview only; on failure, inspect the complete raw log before diagnosis.
 - RTK failure: the original command status remains authoritative. Inspect raw output; do not label the run successful solely because filtering failed.
 - Possible credential marker: the runner suppresses showing the log and summary. Review locally before any sharing; pattern matching cannot guarantee the log is safe.
 - Timeout: optional `--timeout SECONDS` returns code 124 and records the raw log. Do not silently reinterpret a timeout as a passing test.
